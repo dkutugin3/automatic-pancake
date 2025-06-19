@@ -1,0 +1,15 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "webapp-chart.fullname" . }}
+  labels:
+    {{- include "webapp-chart.labels" . | nindent 4 }}
+spec:
+  # Обеспечиваем минимальное количество доступных подов во время обслуживания кластера
+  # Это важно для обеспечения отказоустойчивости при плановых работах
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "webapp-chart.selectorLabels" . | nindent 6 }}
+{{- end }}

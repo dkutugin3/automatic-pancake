@@ -1,0 +1,114 @@
+replicaCount:
+  min: 4  # Минимальное количество подов для обработки пиковой нагрузки
+  max: 8  # Максимальное количество подов при автомасштабировании
+
+image:
+  repository: webapp
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+deployment:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  topologySpreadConstraints:
+    enabled: true
+    maxSkew: 1
+    topologyKey: "topology.kubernetes.io/zone"
+
+probes:
+  readiness:
+    initialDelaySeconds: 10  
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+    path: /health
+  liveness:
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+    path: /health
+  startup:
+    enabled: true
+    periodSeconds: 5
+    failureThreshold: 30  
+    path: /health
+
+autoscaling:
+  enabled: true
+  targetCPUUtilizationPercentage: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0  
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+
+scheduleScaling:
+  enabled: true
+  nightScale:
+    schedule: "0 0 * * *"  
+    replicaCount: 2  
+  dayScale:
+    schedule: "0 8 * * *"  
+    replicaCount: 4 
+
+resources:
+  requests:
+    cpu: 300m  
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+verticalPodAutoscaler:
+  enabled: true
+  updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: "*"
+        minAllowed:
+          cpu: 100m
+          memory: 128Mi
+        maxAllowed:
+          cpu: 500m
+          memory: 256Mi
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 3  
+
+affinity:
+  podAntiAffinity:
+    enabled: true
+    type: preferred  
+    weight: 100
+    topologyKey: "kubernetes.io/hostname"  
+
+tolerations: []
+
+nodeSelector: {}
+
+priorityClassName: ""
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000

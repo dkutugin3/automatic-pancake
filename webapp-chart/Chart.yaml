@@ -1,0 +1,6 @@
+apiVersion: v2
+name: webapp-chart
+description: Helm chart for a web application with high availability and resource optimization
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

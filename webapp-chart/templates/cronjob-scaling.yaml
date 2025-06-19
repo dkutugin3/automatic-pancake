@@ -1,0 +1,86 @@
+{{- if .Values.scheduleScaling.enabled }}
+# CronJob для ночного масштабирования (уменьшение количества реплик)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "webapp-chart.fullname" . }}-night-scale
+  labels:
+    {{- include "webapp-chart.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.scheduleScaling.nightScale.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: {{ include "webapp-chart.fullname" . }}-scaler
+          containers:
+          - name: kubectl
+            image: bitnami/kubectl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              kubectl scale deployment {{ include "webapp-chart.fullname" . }} --replicas={{ .Values.scheduleScaling.nightScale.replicaCount }}
+          restartPolicy: OnFailure
+---
+# CronJob для дневного масштабирования (увеличение количества реплик)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "webapp-chart.fullname" . }}-day-scale
+  labels:
+    {{- include "webapp-chart.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.scheduleScaling.dayScale.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: {{ include "webapp-chart.fullname" . }}-scaler
+          containers:
+          - name: kubectl
+            image: bitnami/kubectl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              kubectl scale deployment {{ include "webapp-chart.fullname" . }} --replicas={{ .Values.scheduleScaling.dayScale.replicaCount }}
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "webapp-chart.fullname" . }}-scaler
+  labels:
+    {{- include "webapp-chart.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "webapp-chart.fullname" . }}-scaler
+  labels:
+    {{- include "webapp-chart.labels" . | nindent 4 }}
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "patch"]
+- apiGroups: ["apps"]
+  resources: ["deployments/scale"]
+  verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "webapp-chart.fullname" . }}-scaler
+  labels:
+    {{- include "webapp-chart.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "webapp-chart.fullname" . }}-scaler
+subjects:
+- kind: ServiceAccount
+  name: {{ include "webapp-chart.fullname" . }}-scaler
+{{- end }}
